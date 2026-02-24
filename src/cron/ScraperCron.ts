@@ -1,0 +1,28 @@
+import cron from 'node-cron';
+import { telegramService } from '../services/TelegramService.js';
+
+/*
+ * Schedules the Telegram scraper to run every 6 hours.
+ * Expression: 0 *\/6 * * *
+*/
+export const startScraperCron = (): void => {
+    let isScraping = false;
+
+    cron.schedule('0 */6 * * *', async () => {
+        if (isScraping) {
+            console.log('⚠️ Scraper is already running, skipping this cycle.');
+            return;
+        }
+
+        isScraping = true;
+        console.log(`\n🕐 [${new Date().toISOString()}] Cron: starting Telegram scraper...`);
+
+        try {
+            await telegramService.run();
+        } catch (error) {
+            console.error('❌ Cron job error:', error);
+        } finally {
+            isScraping = false;
+        }
+    });
+};

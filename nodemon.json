@@ -1,0 +1,12 @@
+{
+    "watch": [
+        "src"
+    ],
+    "ext": "ts,json",
+    "ignore": [
+        "node_modules",
+        "dist",
+        "logs"
+    ],
+    "exec": "tsx src/server.ts"
+}
