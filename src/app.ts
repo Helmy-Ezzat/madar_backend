@@ -2,8 +2,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
-
 import JobRoutes from './routes/v1/JobRoutes.js';
+import { healthCheck } from './controllers/v1/JobController.js';
 
 const app = express();
 
@@ -14,20 +14,21 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'https://madar-jobs.verce
 
 app.use(
     cors({
-        origin: (origin, callback) => {
-            // Allow requests with no origin (e.g., Postman, server-to-server)
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error(`CORS: origin '${origin}' is not allowed.`));
-            }
-        },
+        origin: '*',
         methods: ['GET'],
         credentials: false,
     })
 );
+// 2 - Body Parser
+app.use(express.json());
 
-// 2 - Rate Limiting: How many times they can call
+// 3 - Routes
+app.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('🚀 Madar API is LIVE and Running');
+});
+app.get('/health', healthCheck);
+
+// 4 - Rate Limiting: How many times they can call
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100,                   // max requests per IP per window
@@ -35,23 +36,15 @@ const limiter = rateLimit({
     legacyHeaders: false,
     message: { success: false, error: 'Too many requests. Please try again later.' },
 });
-app.use(limiter);
-
-//  Body Parser 
-app.use(express.json());
-
-// 3 - Routing: Where the request goes 
+app.use('/api',limiter);
 app.use('/api/v1/jobs', JobRoutes);
-app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
 
-// 4 - Error Handling: How to handle failures
+// 5 - Error Handling: How to handle failures
 app.use((_req: Request, res: Response) => {
     res.status(404).json({ success: false, error: 'Route not found.' });
 });
 
-// Global error handler
+// 6 - Global error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Unhandled error:', err.message);
     res.status(500).json({ success: false, error: 'Internal server error.' });

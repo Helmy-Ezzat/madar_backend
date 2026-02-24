@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as JobService from '../../services/JobService.js';
+import mongoose from 'mongoose';
 
 // GET /api/v1/jobs
 
@@ -51,4 +52,21 @@ export const getJobById = async (req: Request, res: Response): Promise<void> => 
     }
 
     res.json({ success: true, data: job });
+};
+
+export const healthCheck = (req: Request, res: Response) => {
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    if (!isDbConnected) {
+        return res.status(503).json({
+            status: 'DOWN',
+            message: 'Database connection lost'
+        });
+    }
+
+    return res.status(200).json({
+        status: 'UP',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 };
