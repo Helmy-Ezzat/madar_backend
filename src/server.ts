@@ -3,7 +3,7 @@ import app from './app.js';
 import { connectDB } from './config/db.js';
 import { startScraperCron } from './cron/ScraperCron.js';
 
-const PORT = parseInt(process.env.PORT ?? '5000', 10);
+const PORT = process.env.PORT || 8080;
 
 const bootstrap = async (): Promise<void> => {
     try {

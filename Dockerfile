@@ -18,7 +18,7 @@ RUN npm run build
 
 # Expose the port the server runs on (defaults to 5000)
 # Update this if your Express app uses a different PORT
-EXPOSE 7860
+EXPOSE 8080
 
 # Default command to start the server
 CMD ["npm", "start"]
