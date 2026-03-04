@@ -73,7 +73,13 @@ class TelegramService {
         const apiId = parseInt(process.env.TELEGRAM_API_ID ?? '0', 10);
         const apiHash = process.env.TELEGRAM_API_HASH ?? '';
         const session = new StringSession(process.env.TELEGRAM_STRING_SESSION ?? '');
-        return new TelegramClient(session, apiId, apiHash, { connectionRetries: 5 });
+        return new TelegramClient(session, apiId, apiHash, { 
+            connectionRetries: 5,
+            useWSS: false,
+            requestRetries: 3,
+            timeout: 10000,
+            autoReconnect: false
+        });
     }
 
     async connect(): Promise<boolean> {
@@ -94,9 +100,15 @@ class TelegramService {
 
     async disconnect(): Promise<void> {
         if (this.client) {
-            await this.client.disconnect();
-            this.client = null;
-            console.log('🔌 Telegram client disconnected.');
+            try {
+                await this.client.disconnect();
+                await this.client.destroy();
+            } catch (error) {
+                console.warn('⚠️  Error during disconnect:', error);
+            } finally {
+                this.client = null;
+                console.log('🔌 Telegram client disconnected.');
+            }
         }
     }
 

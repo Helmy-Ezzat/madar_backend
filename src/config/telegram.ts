@@ -22,10 +22,13 @@ export const createTelegramClient = (): TelegramClient => {
         apiId, 
         apiHash, 
         {
-            connectionRetries: 10,
+            connectionRetries: 5,
             retryDelay: 2000,
-            autoReconnect: true,
-            floodSleepThreshold: 60 
+            autoReconnect: false,
+            floodSleepThreshold: 60,
+            useWSS: false,
+            requestRetries: 3,
+            timeout: 10000
         }
     );
     return client;
