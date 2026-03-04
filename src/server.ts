@@ -5,7 +5,7 @@ import { startScraperCron } from './cron/ScraperCron.js';
 import mongoose from 'mongoose';
 import cron from 'node-cron';
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 7860;
 let scraperTask: cron.ScheduledTask | null = null;
 
 const bootstrap = async (): Promise<void> => {
