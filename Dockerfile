@@ -1,26 +1,24 @@
 # Use a lightweight Node.js base image
 FROM node:20-alpine
 
-# Required for Hugging Face Spaces: create a non-root user
-RUN adduser -D -u 1000 appuser
-
 # Set the working directory inside the container
 WORKDIR /app
 
 # Copy package.json and package-lock.json to install dependencies
-COPY --chown=appuser package*.json ./
+# node:20-alpine already has a built-in 'node' user (UID 1000)
+COPY --chown=node package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy the rest of the application code
-COPY --chown=appuser . .
+COPY --chown=node . .
 
 # Build the TypeScript code into the dist directory
 RUN npm run build
 
-# Switch to non-root user
-USER appuser
+# Switch to non-root user (built-in 'node' user)
+USER node
 
 # Hugging Face Spaces REQUIRES port 7860
 EXPOSE 7860
