@@ -7,6 +7,9 @@ import { healthCheck } from './controllers/v1/JobController.js';
 
 const app = express();
 
+// Trust proxy - needed for rate limiting behind proxies/load balancers
+app.set('trust proxy', 1);
+
 // 1 - CORS Policy: Who can call me
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'https://madar-jobs.vercel.app,http://localhost:3000')
     .split(',')
