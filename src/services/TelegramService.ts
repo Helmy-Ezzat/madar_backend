@@ -73,12 +73,17 @@ class TelegramService {
         const apiId = parseInt(process.env.TELEGRAM_API_ID ?? '0', 10);
         const apiHash = process.env.TELEGRAM_API_HASH ?? '';
         const session = new StringSession(process.env.TELEGRAM_STRING_SESSION ?? '');
-        return new TelegramClient(session, apiId, apiHash, { 
-            connectionRetries: 5,
+        return new TelegramClient(session, apiId, apiHash, {
+            connectionRetries: 3,
             useWSS: false,
-            requestRetries: 3,
+            requestRetries: 2,
             timeout: 10000,
-            autoReconnect: false
+            autoReconnect: false,
+            // Unique device identity helps Telegram distinguish this session
+            // from stale/lingering connections that cause AUTH_KEY_DUPLICATED.
+            deviceModel: `MadarBot-${process.pid}`,
+            systemVersion: 'Linux',
+            appVersion: '1.0.0',
         });
     }
 
@@ -92,8 +97,20 @@ class TelegramService {
             await this.client.connect();
             console.log('✅ Telegram client connected.');
             return true;
-        } catch (error) {
-            console.error('❌ Telegram connect error:', error);
+        } catch (error: any) {
+            const isAuthKeyDuplicated =
+                error?.errorMessage === 'AUTH_KEY_DUPLICATED' ||
+                error?.message?.includes('AUTH_KEY_DUPLICATED');
+
+            if (isAuthKeyDuplicated) {
+                console.error(
+                    '❌ Telegram connect error: AUTH_KEY_DUPLICATED\n' +
+                    '   Your session string has been invalidated by Telegram.\n' +
+                    '   ACTION REQUIRED: Generate a new TELEGRAM_STRING_SESSION and update your environment variables.'
+                );
+            } else {
+                console.error('❌ Telegram connect error:', error);
+            }
             return false;
         }
     }
