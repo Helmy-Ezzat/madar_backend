@@ -7,6 +7,7 @@
         "build": "tsc",
         "start": "node dist/server.js",
         "scrape": "tsx src/scripts/runScraper.ts",
+        "reprocess": "tsx src/scripts/reprocessJobs.ts",
         "dev": "tsx watch src/server.ts",
         "migrate": "tsx src/scripts/migrateCompanies.ts"
     },
