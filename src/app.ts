@@ -3,6 +3,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 import JobRoutes from './routes/v1/JobRoutes.js';
+import AuthRoutes from './routes/v1/AuthRoutes.js';
 import { healthCheck } from './controllers/v1/JobController.js';
 
 const app = express();
@@ -18,7 +19,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'https://madar-jobs.verce
 app.use(
     cors({
         origin: '*',
-        methods: ['GET'],
+        methods: ['GET', 'POST', 'OPTIONS'],
         credentials: false,
     })
 );
@@ -41,6 +42,7 @@ const limiter = rateLimit({
 });
 app.use('/api',limiter);
 app.use('/api/v1/jobs', JobRoutes);
+app.use('/api/v1/auth', AuthRoutes);
 
 // 5 - Error Handling: How to handle failures
 app.use((_req: Request, res: Response) => {
