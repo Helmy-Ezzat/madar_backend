@@ -10,7 +10,7 @@ import {
     getMyOfficeJobs,
     updateMyOfficeJob,
     deleteMyOfficeJob,
-    getMyOfficeJobApplicants,
+    getMyOfficeJobApplicants, getMyApplications,
     applyToJob,
     getAppliedState,
 } from '../../controllers/v1/JobController.js';
@@ -32,6 +32,7 @@ router.patch('/mine/:id', requireAuth, requireApprovedOffice, updateMyOfficeJob)
 router.delete('/mine/:id', requireAuth, requireApprovedOffice, deleteMyOfficeJob);
 router.get('/mine/:id/applicants', requireAuth, requireApprovedOffice, getMyOfficeJobApplicants);
 router.get('/', getJobs);
+router.get('/my-applications', requireAuth, getMyApplications);
 router.get('/:id', getJobById);
 router.post('/:id/apply', requireAuth, applyToJob);
 router.get('/:id/applied', requireAuth, getAppliedState);

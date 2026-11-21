@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as JobService from '../../services/JobService.js';
+import { Application } from '../../models/Application.js';
+import { Job } from '../../models/Job.js';
 import mongoose from 'mongoose';
 
 // GET /api/v1/jobs
@@ -146,6 +148,31 @@ export const getMyOfficeJobApplicants = async (req: Request, res: Response): Pro
         return;
     }
     res.json({ success: true, data: applicants });
+};
+
+
+// GET /api/v1/jobs/my-applications — the seeker's own applications with a job summary
+export const getMyApplications = async (req: Request, res: Response): Promise<void> => {
+    const apps = await Application.find({ applicantUid: req.user!.uid }).sort({ createdAt: -1 }).lean();
+    const jobIds = apps.map((a) => a.job_id);
+    const jobs = await Job.find({ _id: { $in: jobIds } })
+        .select('job_info company_name approval_status posted_by')
+        .lean();
+    const byId = new Map(jobs.map((j) => [String(j._id), j]));
+    const data = apps.map((a) => {
+        const j = byId.get(String(a.job_id));
+        const info = (j?.job_info ?? {}) as { job_titles?: string[]; location?: string };
+        return {
+            id: String(a._id),
+            jobId: String(a.job_id),
+            title: info.job_titles?.[0] ?? '',
+            office: j?.company_name ?? '',
+            location: info.location ?? '',
+            appliedAt: a.createdAt,
+            jobStatus: j ? (j.approval_status || 'pending') : 'deleted',
+        };
+    });
+    res.json({ success: true, data });
 };
 
 // POST /api/v1/jobs/:id/apply
