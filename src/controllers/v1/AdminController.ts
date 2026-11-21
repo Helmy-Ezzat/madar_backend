@@ -5,6 +5,19 @@ import { Application } from '../../models/Application.js';
 import { FcmToken } from '../../models/FcmToken.js';
 import { firebaseAuth } from '../../config/firebase.js';
 
+
+// GET /api/v1/admin/counts — red-badge counters for the admin dashboard
+export const getCounts = async (req: Request, res: Response): Promise<void> => {
+    const pendingOffices = await User.countDocuments({ role: 'office', officeStatus: 'pending' });
+    const pendingJobs = await Job.countDocuments({
+        posted_by: { $exists: true, $nin: ['', null] },
+        approval_status: { $in: ['pending', '', null] },
+    });
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const newApplications = await Application.countDocuments({ createdAt: { $gte: since } });
+    res.json({ success: true, data: { pendingOffices, pendingJobs, newApplications } });
+};
+
 // GET /api/v1/admin/offices?status=pending|approved|rejected|all
 export const listOffices = async (req: Request, res: Response): Promise<void> => {
     const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
