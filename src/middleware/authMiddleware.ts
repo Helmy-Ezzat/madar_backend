@@ -105,7 +105,7 @@ export const requireAdmin = async (
     res: Response,
     next: NextFunction,
 ): Promise<void> => {
-    const admins = (process.env.ADMIN_EMAILS ?? 'hellmyezzat@gmail.com,x26dbl@mail.instinct.com')
+    const admins = (process.env.ADMIN_EMAILS ?? 'hellmyezzat@gmail.com')
         .split(',')
         .map((e) => e.trim().toLowerCase());
     const email = (req.user!.email ?? '').toLowerCase();
