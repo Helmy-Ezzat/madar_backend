@@ -60,7 +60,9 @@ export const NotificationService = {
         if (dead.length) await FcmToken.deleteMany({ token: { $in: dead } });
         // Surface the first send error code so the test button can show it while debugging
         const firstError = res.responses.find((r) => !r.success)?.error?.code ?? null;
-        return { sent: res.successCount, failed: res.failureCount, devices: tokens.length, firstError };
+        // Debug aid: when each registered token was last (re)registered
+        const tokenInfo = tokens.map((t) => ({ createdAt: t.createdAt, updatedAt: t.updatedAt }));
+        return { sent: res.successCount, failed: res.failureCount, devices: tokens.length, firstError, tokenInfo };
     },
 };
 
