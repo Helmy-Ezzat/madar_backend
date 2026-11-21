@@ -12,11 +12,12 @@ export interface ParsedJob {
     summary?: string;
 }
 
-// Service
+// Groq retired llama-3.3-70b-versatile for free/developer tiers on 2026-08-16.
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 
 class AiService {
     private client: Groq;
-    private model = 'llama-3.3-70b-versatile';
+    private model: string;
 
     constructor() {
         const apiKey = process.env.GROQ_API_KEY;
@@ -24,11 +25,11 @@ class AiService {
             console.warn('⚠️  GROQ_API_KEY is missing. AI parsing will return null.');
         }
         this.client = new Groq({ apiKey });
+        this.model = process.env.GROQ_MODEL || DEFAULT_MODEL;
     }
 
     /**
      * Parses a raw Arabic Telegram message using Groq LLM.
-     * Identical prompt to the Python AIParser — same fields, same rules.
      * Returns null on error or if the Groq API is unreachable.
      */
     async parseJob(rawText: string): Promise<ParsedJob | null> {
@@ -74,10 +75,21 @@ class AiService {
             const content = completion.choices[0]?.message?.content;
             if (!content) return null;
 
-            return JSON.parse(content) as ParsedJob;
+            return this.parseJsonContent(content);
         } catch (error) {
             console.error('⚠️  AiService.parseJob error:', error);
             return null;
+        }
+    }
+
+    private parseJsonContent(content: string): ParsedJob {
+        const trimmed = content.trim();
+        try {
+            return JSON.parse(trimmed) as ParsedJob;
+        } catch {
+            const match = trimmed.match(/\{[\s\S]*\}/);
+            if (!match) throw new Error('Model response was not valid JSON');
+            return JSON.parse(match[0]) as ParsedJob;
         }
     }
 }
