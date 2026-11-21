@@ -200,3 +200,66 @@ export const cleanupPentestData = async (_req: Request, res: Response): Promise<
         },
     });
 };
+
+// POST /api/v1/admin/offices/:id/suspend — approved office violating rules
+export const suspendOffice = async (req: Request, res: Response): Promise<void> => {
+    const office = await User.findOneAndUpdate(
+        { _id: req.params.id, role: 'office' },
+        { officeStatus: 'suspended' },
+        { new: true },
+    );
+    if (!office) {
+        res.status(404).json({ success: false, error: 'Office not found.' });
+        return;
+    }
+    res.json({ success: true, data: office });
+};
+
+// POST /api/v1/admin/offices/:id/unsuspend
+export const unsuspendOffice = async (req: Request, res: Response): Promise<void> => {
+    const office = await User.findOneAndUpdate(
+        { _id: req.params.id, role: 'office' },
+        { officeStatus: 'approved' },
+        { new: true },
+    );
+    if (!office) {
+        res.status(404).json({ success: false, error: 'Office not found.' });
+        return;
+    }
+    res.json({ success: true, data: office });
+};
+
+// POST /api/v1/admin/jobs/:id/suspend — hide a live job without deleting it
+export const suspendJob = async (req: Request, res: Response): Promise<void> => {
+    const job = await Job.findByIdAndUpdate(req.params.id, { approval_status: 'suspended' }, { new: true });
+    if (!job) {
+        res.status(404).json({ success: false, error: 'Job not found.' });
+        return;
+    }
+    res.json({ success: true, data: job });
+};
+
+// POST /api/v1/admin/jobs/:id/unsuspend — back to live
+export const unsuspendJob = async (req: Request, res: Response): Promise<void> => {
+    const job = await Job.findByIdAndUpdate(
+        req.params.id,
+        { approval_status: 'approved', published_at: new Date() },
+        { new: true },
+    );
+    if (!job) {
+        res.status(404).json({ success: false, error: 'Job not found.' });
+        return;
+    }
+    res.json({ success: true, data: job });
+};
+
+// DELETE /api/v1/admin/jobs/:id — hard delete with its applications
+export const deleteJob = async (req: Request, res: Response): Promise<void> => {
+    const result = await Job.deleteOne({ _id: req.params.id });
+    await Application.deleteMany({ job_id: req.params.id });
+    if (result.deletedCount !== 1) {
+        res.status(404).json({ success: false, error: 'Job not found.' });
+        return;
+    }
+    res.json({ success: true, data: { deleted: true } });
+};

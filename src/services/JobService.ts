@@ -355,6 +355,16 @@ export const updateOfficeJob = async (
     return job;
 };
 
+
+/** Office closes its own posting: hidden from the feed, no new applications. Reopen goes back through admin review. */
+export const setOfficeJobClosed = async (firebaseUid: string, jobId: string, closed: boolean): Promise<IJob | null> => {
+    const job = await Job.findOne({ _id: jobId, posted_by: firebaseUid });
+    if (!job) return null;
+    job.approval_status = closed ? 'closed' : 'pending';
+    await job.save();
+    return job;
+};
+
 export const deleteOfficeJob = async (firebaseUid: string, jobId: string): Promise<boolean> => {
     const result = await Job.deleteOne({ _id: jobId, posted_by: firebaseUid });
     await Application.deleteMany({ job_id: jobId });

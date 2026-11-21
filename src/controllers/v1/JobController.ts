@@ -131,6 +131,18 @@ export const updateMyOfficeJob = async (req: Request, res: Response): Promise<vo
 };
 
 // DELETE /api/v1/jobs/mine/:id
+
+// PATCH /api/v1/jobs/mine/:id/close  { closed: boolean }
+export const closeMyOfficeJob = async (req: Request, res: Response): Promise<void> => {
+    const closed = req.body?.closed !== false;
+    const job = await JobService.setOfficeJobClosed(res.locals.dbUser.firebaseUid, req.params.id as string, closed);
+    if (!job) {
+        res.status(404).json({ success: false, error: 'Job not found.' });
+        return;
+    }
+    res.json({ success: true, data: job });
+};
+
 export const deleteMyOfficeJob = async (req: Request, res: Response): Promise<void> => {
     const deleted = await JobService.deleteOfficeJob(res.locals.dbUser.firebaseUid, req.params.id as string);
     if (!deleted) {
