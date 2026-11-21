@@ -166,26 +166,6 @@ export const approveAllJobs = async (_req: Request, res: Response): Promise<void
     res.json({ success: true, data: { approved: result.modifiedCount || 0 } });
 };
 
-// POST /api/v1/admin/migrate/grandfather-legacy-jobs — ONE-SHOT migration:
-// marks every already-live telegram-imported job approved so the new
-// "imports need approval" rule does not hide the existing public backlog.
-export const grandfatherLegacyJobs = async (_req: Request, res: Response): Promise<void> => {
-    const result = await Job.updateMany(
-        {
-            is_job: true,
-            approval_status: { $in: ['', null] },
-            posted_by: { $in: ['', null] },
-        },
-        { $set: { approval_status: 'approved' } }
-    ).exec();
-    // jobs with no approval_status field at all
-    const result2 = await Job.updateMany(
-        { is_job: true, approval_status: { $exists: false } },
-        { $set: { approval_status: 'approved' } }
-    ).exec();
-    res.json({ success: true, data: { updated: (result.modifiedCount || 0) + (result2.modifiedCount || 0) } });
-};
-
 export const cleanupPentestData = async (_req: Request, res: Response): Promise<void> => {
     const emailRegex = /^pentest-seeker.*@example\.com$/i;
     const extraEmails = ['pentest-seeker2-1795243137@example.com', 'pentest-seeker3-1795243273@example.com'];
