@@ -1,5 +1,6 @@
 import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 import { FcmToken } from '../models/FcmToken.js';
+import { User } from '../models/User.js';
 import { SavedSearch, type ISavedSearch } from '../models/SavedSearch.js';
 import type { IJob } from '../models/Job.js';
 
@@ -147,5 +148,61 @@ export async function notifyNewJob(job: IJob): Promise<void> {
         console.log(`🔔 New-job notifications sent: ${response.successCount} ok, ${response.failureCount} failed`);
     } catch (error) {
         console.error('❌ notifyNewJob error:', error);
+    }
+}
+
+/**
+ * A seeker applied to a job: push to the office that posted it, or to the
+ * admin(s) when the job was posted by the platform (posted_by 'madar').
+ * Never throws — a push failure must not break the apply flow.
+ */
+export async function notifyNewApplication(job: IJob, applicantName: string): Promise<void> {
+    try {
+        const fcm = getFirebaseMessaging();
+        if (!fcm) return;
+
+        const isPlatform = !job.posted_by || job.posted_by === 'madar';
+        let uids: string[] = [];
+        let link = '/dashboard';
+        if (isPlatform) {
+            const adminEmails = (process.env.ADMIN_EMAILS ?? 'hellmyezzat@gmail.com')
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .filter(Boolean);
+            const admins = await User.find({ email: { $in: adminEmails } }).select('firebaseUid').lean();
+            uids = admins.map((a) => a.firebaseUid);
+            link = '/admin';
+        } else {
+            uids = [job.posted_by!];
+        }
+        if (uids.length === 0) return;
+
+        const tokens = await FcmToken.find({ firebaseUid: { $in: uids } }).lean();
+        if (tokens.length === 0) return;
+
+        const jobTitle = job.job_info?.job_titles?.[0] ?? 'وظيفتك';
+        const res = await fcm.sendEachForMulticast({
+            tokens: tokens.map((t) => t.token),
+            data: {
+                title: 'تقديم جديد 📥',
+                body: `${applicantName} قدّم على وظيفة ${jobTitle}`,
+                jobId: String(job._id),
+                link,
+            },
+            webpush: {
+                fcmOptions: { link: `https://madar-jobs.vercel.app${link}` },
+            },
+        });
+        const dead: string[] = [];
+        res.responses.forEach((r, i) => {
+            const code = r.error?.code ?? '';
+            if (!r.success && (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token'))) {
+                dead.push(tokens[i].token);
+            }
+        });
+        if (dead.length) await FcmToken.deleteMany({ token: { $in: dead } });
+        console.log(`🔔 Application notifications sent: ${res.successCount} ok, ${res.failureCount} failed`);
+    } catch (error) {
+        console.error('❌ notifyNewApplication error:', error);
     }
 }

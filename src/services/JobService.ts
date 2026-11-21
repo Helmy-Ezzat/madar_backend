@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Job, IJob } from '../models/Job.js';
+import { notifyNewApplication } from './NotificationService.js';
 
 // Types
 
@@ -379,7 +380,7 @@ export const applyToJob = async (
     jobId: string,
     input: ApplicationInput,
 ): Promise<'ok' | 'duplicate' | 'not_found'> => {
-    const job = await Job.findOne({ _id: jobId, posted_by: { $exists: true, $nin: ['', null] }, approval_status: 'approved' }).select('_id').exec();
+    const job = await Job.findOne({ _id: jobId, posted_by: { $exists: true, $nin: ['', null] }, approval_status: 'approved' }).select('_id posted_by company_name job_info').exec();
     if (!job) return 'not_found';
 
     try {
@@ -391,6 +392,8 @@ export const applyToJob = async (
             phone: input.phone.trim(),
             note: input.note?.trim() ?? '',
         });
+        // Push to the office (or admin for platform jobs) — never blocks the apply
+        void notifyNewApplication(job, input.name.trim()).catch(() => {});
         return 'ok';
     } catch (error: unknown) {
         if ((error as { code?: number })?.code === 11000) return 'duplicate';
