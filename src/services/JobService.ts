@@ -64,20 +64,6 @@ export const getJobs = async ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pipeline: mongoose.PipelineStage[] = [];
 
-        // 1. Atlas Full-Text Search (must be first if present)
-        if (search?.trim()) {
-            pipeline.push({
-                $search: {
-                    index: 'default',
-                    text: {
-                        query: search.trim(),
-                        path: ['job_info.job_titles', 'company_name', 'channel_title'],
-                        fuzzy: { maxEdits: 1 },
-                    },
-                },
-            } as unknown as mongoose.PipelineStage);
-        }
-
         // 2. Base filter
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matchStage: Record<string, any> = {
@@ -87,6 +73,13 @@ export const getJobs = async ({
             approval_status: { $in: ['approved', 'closed'] },
         };
 
+        if (search?.trim()) {
+            // Plain regex search: works for Arabic without depending on an Atlas Search index
+            const rx = new RegExp(escapeRegExp(search.trim()), 'i');
+            matchStage['$and'] = [
+                { $or: [{ 'job_info.job_titles': rx }, { company_name: rx }, { channel_title: rx }, { 'job_info.summary': rx }] },
+            ];
+        }
         if (location) matchStage['job_info.location'] = location;
         if (company) matchStage['company_name'] = company;
         if (specialization) matchStage['job_info.job_titles'] = specialization;
@@ -102,10 +95,8 @@ export const getJobs = async ({
 
         pipeline.push({ $match: matchStage });
 
-        // 3. Sort (skip if search — Atlas scores handle relevance)
-        if (!search?.trim()) {
-            pipeline.push({ $sort: { published_at: -1 } });
-        }
+        // 3. Newest first
+        pipeline.push({ $sort: { published_at: -1 } });
 
         // 4. Facet: paginated data + total count in one query
         pipeline.push({
