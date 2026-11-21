@@ -31,6 +31,35 @@ export const NotificationService = {
         await FcmToken.deleteOne({ firebaseUid, token });
         return { registered: false };
     },
+
+    /** Sends a demo notification to every device registered for this user. */
+    async sendTestToUser(firebaseUid: string) {
+        const fcm = getFirebaseMessaging();
+        if (!fcm) return { sent: 0, reason: 'messaging-unavailable' };
+        const tokens = await FcmToken.find({ firebaseUid }).lean().exec();
+        if (tokens.length === 0) return { sent: 0, reason: 'no-tokens' };
+        const res = await fcm.sendEachForMulticast({
+            tokens: tokens.map((t) => t.token),
+            notification: {
+                title: 'إشعار تجريبي من مدار 🎉',
+                body: 'كده الإشعارات شغالة! هيوصلك تنبيه أول ما تنزل وظيفة مطابقة لبحثك.',
+            },
+            data: { link: '/' },
+            webpush: {
+                fcmOptions: { link: 'https://madar-jobs.vercel.app/' },
+            },
+        });
+        // Clean dead tokens
+        const dead: string[] = [];
+        res.responses.forEach((r, i) => {
+            const code = r.error?.code ?? '';
+            if (!r.success && (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token'))) {
+                dead.push(tokens[i].token);
+            }
+        });
+        if (dead.length) await FcmToken.deleteMany({ token: { $in: dead } });
+        return { sent: res.successCount, failed: res.failureCount };
+    },
 };
 
 /**
