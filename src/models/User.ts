@@ -7,6 +7,9 @@ export interface IUser extends Document {
     photoURL: string;
     provider: string;
     role: string;
+    officeStatus: string | null;
+    officeName: string;
+    licenseNumber: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -19,6 +22,9 @@ const UserSchema = new Schema<IUser>(
         photoURL: { type: String, default: '' },
         provider: { type: String, default: 'email' },
         role: { type: String, default: 'user' },
+        officeStatus: { type: String, enum: ['pending', 'approved', 'rejected', null], default: null },
+        officeName: { type: String, default: '' },
+        licenseNumber: { type: String, default: '' },
     },
     {
         timestamps: true,

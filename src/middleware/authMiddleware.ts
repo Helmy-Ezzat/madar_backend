@@ -71,3 +71,47 @@ export const optionalAuth = async (
 
     next();
 };
+
+import { User } from '../models/User.js';
+
+/**
+ * Requires the authenticated user to be an approved labor-recruitment office
+ * (مكتب إلحاق عمالة معتمد). Attaches the user document to `res.locals.dbUser`.
+ */
+export const requireApprovedOffice = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> => {
+    const dbUser = await User.findOne({ firebaseUid: req.user!.uid });
+    if (!dbUser || dbUser.role !== 'office') {
+        res.status(403).json({ success: false, error: 'This action requires an office account.' });
+        return;
+    }
+    if (dbUser.officeStatus !== 'approved') {
+        res.status(403).json({ success: false, error: 'حساب المكتب تحت المراجعة. سيتم تفعيله بعد الاعتماد.' });
+        return;
+    }
+    res.locals.dbUser = dbUser;
+    next();
+};
+
+/**
+ * Requires the authenticated user's email to be in ADMIN_EMAILS (env, comma-separated).
+ * Defaults to the site owner address.
+ */
+export const requireAdmin = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> => {
+    const admins = (process.env.ADMIN_EMAILS ?? 'hellmyezzat@gmail.com')
+        .split(',')
+        .map((e) => e.trim().toLowerCase());
+    const email = (req.user!.email ?? '').toLowerCase();
+    if (!email || !admins.includes(email)) {
+        res.status(403).json({ success: false, error: 'Admin access required.' });
+        return;
+    }
+    next();
+};

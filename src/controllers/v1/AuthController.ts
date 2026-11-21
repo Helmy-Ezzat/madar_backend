@@ -4,7 +4,11 @@ import * as UserService from '../../services/UserService.js';
 // POST /api/v1/auth/sync
 export const syncUser = async (req: Request, res: Response): Promise<void> => {
     try {
-        const user = await UserService.syncUser(req.user!);
+        const user = await UserService.syncUser(req.user!, {
+            role: typeof req.body?.role === 'string' ? req.body.role : undefined,
+            officeName: typeof req.body?.officeName === 'string' ? req.body.officeName : undefined,
+            licenseNumber: typeof req.body?.licenseNumber === 'string' ? req.body.licenseNumber : undefined,
+        });
         res.json({ success: true, data: user });
     } catch (error) {
         console.error('Error syncing user:', error);

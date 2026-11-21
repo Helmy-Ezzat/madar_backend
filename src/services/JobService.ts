@@ -272,3 +272,125 @@ export const getSuggestions = async (q: string): Promise<{ titles: Specializatio
         return { titles: [], locations: [] };
     }
 };
+
+// ---------------------------------------------------------------------------
+// Office-posted jobs (مكاتب إلحاق العمالة) and applications
+// ---------------------------------------------------------------------------
+
+import { Application } from '../models/Application.js';
+import type { IUser } from '../models/User.js';
+
+export interface OfficeJobInput {
+    title: string;
+    location: string;
+    salary?: string;
+    experience?: string;
+    summary: string;
+}
+
+/** Create a job posting owned by an approved office account. */
+export const createOfficeJob = async (office: IUser, input: OfficeJobInput): Promise<IJob> => {
+    // Synthetic unique id within the office's own channel namespace
+    const messageId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+
+    const job = await Job.create({
+        message_id: messageId,
+        source_platform: 'madar',
+        channel_username: `office:${office.firebaseUid}`,
+        channel_title: office.officeName || office.displayName,
+        company_name: office.officeName || office.displayName,
+        license_number: office.licenseNumber || '',
+        company_description: '',
+        source_link: '',
+        raw_text: input.summary,
+        published_at: new Date(),
+        is_job: true,
+        ai_classified_at: new Date(),
+        posted_by: office.firebaseUid,
+        office_verified: true,
+        job_info: {
+            job_titles: [input.title.trim()],
+            location: input.location.trim(),
+            salary: input.salary?.trim() || 'يحدد عند المقابلة',
+            experience: input.experience?.trim() || 'غير محدد',
+            summary: input.summary.trim(),
+        },
+    });
+
+    return job;
+};
+
+export const getOfficeJobs = async (firebaseUid: string): Promise<IJob[]> => {
+    return Job.find({ posted_by: firebaseUid }).sort({ created_at: -1 }).exec();
+};
+
+/** Update only the editable content fields of an office's own posting. */
+export const updateOfficeJob = async (
+    firebaseUid: string,
+    jobId: string,
+    input: Partial<OfficeJobInput>,
+): Promise<IJob | null> => {
+    const job = await Job.findOne({ _id: jobId, posted_by: firebaseUid });
+    if (!job || !job.job_info) return null;
+
+    if (input.title !== undefined) job.job_info.job_titles = [input.title.trim()];
+    if (input.location !== undefined) job.job_info.location = input.location.trim();
+    if (input.salary !== undefined) job.job_info.salary = input.salary.trim() || 'يحدد عند المقابلة';
+    if (input.experience !== undefined) job.job_info.experience = input.experience.trim() || 'غير محدد';
+    if (input.summary !== undefined) {
+        job.job_info.summary = input.summary.trim();
+        job.raw_text = input.summary.trim();
+    }
+
+    await job.save();
+    return job;
+};
+
+export const deleteOfficeJob = async (firebaseUid: string, jobId: string): Promise<boolean> => {
+    const result = await Job.deleteOne({ _id: jobId, posted_by: firebaseUid });
+    await Application.deleteMany({ job_id: jobId });
+    return result.deletedCount === 1;
+};
+
+export const getOfficeJobApplicants = async (firebaseUid: string, jobId: string) => {
+    const job = await Job.findOne({ _id: jobId, posted_by: firebaseUid }).select('_id').exec();
+    if (!job) return null;
+    return Application.find({ job_id: jobId }).sort({ createdAt: -1 }).exec();
+};
+
+export interface ApplicationInput {
+    name: string;
+    phone: string;
+    note?: string;
+}
+
+/** A logged-in seeker applies to an office-posted job. One application per job. */
+export const applyToJob = async (
+    uid: string,
+    email: string,
+    jobId: string,
+    input: ApplicationInput,
+): Promise<'ok' | 'duplicate' | 'not_found'> => {
+    const job = await Job.findOne({ _id: jobId, office_verified: true }).select('_id').exec();
+    if (!job) return 'not_found';
+
+    try {
+        await Application.create({
+            job_id: jobId,
+            applicantUid: uid,
+            applicantEmail: email,
+            name: input.name.trim(),
+            phone: input.phone.trim(),
+            note: input.note?.trim() ?? '',
+        });
+        return 'ok';
+    } catch (error: unknown) {
+        if ((error as { code?: number })?.code === 11000) return 'duplicate';
+        throw error;
+    }
+};
+
+export const hasApplied = async (uid: string, jobId: string): Promise<boolean> => {
+    const existing = await Application.findOne({ job_id: jobId, applicantUid: uid }).select('_id').exec();
+    return !!existing;
+};

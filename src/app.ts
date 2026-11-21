@@ -3,6 +3,8 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 import JobRoutes from './routes/v1/JobRoutes.js';
+import AuthRoutes from './routes/v1/AuthRoutes.js';
+import AdminRoutes from './routes/v1/AdminRoutes.js';
 import SavedJobRoutes from './routes/v1/SavedJobRoutes.js';
 import SavedSearchRoutes from './routes/v1/SavedSearchRoutes.js';
 import NotificationRoutes from './routes/v1/NotificationRoutes.js';
@@ -21,7 +23,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'https://madar-jobs.verce
 app.use(
     cors({
         origin: '*',
-        methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
         credentials: false,
     })
 );
@@ -44,6 +46,8 @@ const limiter = rateLimit({
 });
 app.use('/api',limiter);
 app.use('/api/v1/jobs', JobRoutes);
+app.use('/api/v1/auth', AuthRoutes);
+app.use('/api/v1/admin', AdminRoutes);
 app.use('/api/v1/saved-jobs', SavedJobRoutes);
 app.use('/api/v1/saved-searches', SavedSearchRoutes);
 app.use('/api/v1/notifications', NotificationRoutes);

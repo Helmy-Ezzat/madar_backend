@@ -6,7 +6,13 @@ import type { IUser } from '../models/User.js';
  * Find a user by Firebase UID. Create if not exists.
  * Update displayName, photoURL, and email if they have changed.
  */
-export const syncUser = async (decodedToken: DecodedIdToken): Promise<IUser> => {
+export interface SyncProfile {
+    role?: string;
+    officeName?: string;
+    licenseNumber?: string;
+}
+
+export const syncUser = async (decodedToken: DecodedIdToken, profile?: SyncProfile): Promise<IUser> => {
     const { uid, email, name, picture, firebase } = decodedToken;
     const provider = firebase?.sign_in_provider ?? 'email';
 
@@ -20,7 +26,35 @@ export const syncUser = async (decodedToken: DecodedIdToken): Promise<IUser> => 
             photoURL: picture ?? '',
             provider,
         });
+    }
+
+    // A plain user can register as a labor-recruitment office (مكتب إلحاق عمالة);
+    // the account stays pending until an admin approves it. Existing office/admin
+    // roles are never overwritten here, and nobody can self-assign admin.
+    if (profile?.role === 'office' && user.role === 'user') {
+        user.role = 'office';
+        user.officeStatus = 'pending';
+        user.officeName = profile.officeName?.trim() ?? '';
+        user.licenseNumber = profile.licenseNumber?.trim() ?? '';
+        await user.save();
         return user;
+    }
+
+    if (user.role === 'office') {
+        let officeChanged = false;
+        if (profile?.officeName !== undefined && profile.officeName.trim() && user.officeName !== profile.officeName.trim()) {
+            user.officeName = profile.officeName.trim();
+            officeChanged = true;
+        }
+        if (profile?.licenseNumber !== undefined && profile.licenseNumber.trim() && user.licenseNumber !== profile.licenseNumber.trim()) {
+            user.licenseNumber = profile.licenseNumber.trim();
+            officeChanged = true;
+        }
+        if (officeChanged) await user.save();
+    }
+
+    if (!user.officeStatus && user.role !== 'office') {
+        // nothing to do — plain seeker account
     }
 
     // Update fields if they changed

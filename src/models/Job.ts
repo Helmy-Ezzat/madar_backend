@@ -28,6 +28,10 @@ export interface IJob extends Document {
     job_info: IJobInfo | null;
     /** Set only after a successful AI parse (job or not). Missing means retry. */
     ai_classified_at?: Date;
+    /** Firebase UID of the office account that posted this job (empty for scraped jobs). */
+    posted_by?: string;
+    /** True when posted by an approved labor-recruitment office (إلحاق عمالة معتمد). */
+    office_verified?: boolean;
 }
 
 // Schema
@@ -59,6 +63,8 @@ const JobSchema = new Schema<IJob>(
         is_job: { type: Boolean, default: false, index: true },
         job_info: { type: JobInfoSchema, default: null },
         ai_classified_at: { type: Date, required: false },
+        posted_by: { type: String, default: '', index: true },
+        office_verified: { type: Boolean, default: false },
     },
     {
         // Map to the existing collection — no renaming needed
