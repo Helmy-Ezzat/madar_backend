@@ -82,8 +82,9 @@ export const getJobs = async ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matchStage: Record<string, any> = {
             is_job: true,
-            // Every job - office-posted or telegram-imported - shows only after admin approval
-            approval_status: 'approved',
+            // Every job - office-posted or telegram-imported - shows only after admin approval.
+            // Closed jobs stay visible with an "انتهى التقديم" state.
+            approval_status: { $in: ['approved', 'closed'] },
         };
 
         if (location) matchStage['job_info.location'] = location;
