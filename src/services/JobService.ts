@@ -80,7 +80,7 @@ export const getJobs = async ({
                 { $or: [{ 'job_info.job_titles': rx }, { company_name: rx }, { channel_title: rx }, { 'job_info.summary': rx }] },
             ];
         }
-        if (location) matchStage['job_info.location'] = location;
+        if (location) matchStage['job_info.location'] = new RegExp(escapeRegExp(location), 'i');
         if (company) matchStage['company_name'] = company;
         if (specialization) matchStage['job_info.job_titles'] = specialization;
 
