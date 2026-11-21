@@ -147,10 +147,11 @@ export const lookupUser = async (req: Request, res: Response): Promise<void> => 
 
 // POST /api/v1/admin/cleanup/pentest — one-off removal of the authorized pentest's probe data
 export const cleanupPentestData = async (_req: Request, res: Response): Promise<void> => {
-    const emailRegex = /^pentest-seeker-.*@example\.com$/i;
-    const users = await User.find({ email: emailRegex }).select('firebaseUid email').exec();
-    const uids = users.map((u) => u.firebaseUid);
-    const emails = users.map((u) => u.email);
+    const emailRegex = /^pentest-seeker.*@example\.com$/i;
+    const extraEmails = ['pentest-seeker2-1795243137@example.com', 'pentest-seeker3-1795243273@example.com'];
+    const users = await User.find({ $or: [{ email: emailRegex }, { email: { $in: extraEmails } }] }).select('firebaseUid email').exec();
+    const uids = [...new Set([...users.map((u) => u.firebaseUid), 'g3RmrmWpiMUOQuPnN6A7v0VrU003', 'fa6PVJ1hi2W6JgoiyYyvQS5pnf52'])];
+    const emails = [...new Set([...users.map((u) => u.email), ...extraEmails])];
 
     const apps = await Application.deleteMany({
         $or: [
@@ -159,9 +160,9 @@ export const cleanupPentestData = async (_req: Request, res: Response): Promise<
             { job_id: '6b013f7d51e7399b6da6f24d' },
         ],
     });
-    const tokens = await FcmToken.deleteMany({ firebaseUid: { $in: uids } });
+    const tokens = await FcmToken.deleteMany({ $or: [{ firebaseUid: { $in: uids } }, { token: 'fake-fcm-token-pentest' }] });
     const jobs = await Job.deleteMany({ _id: '6b013f7d51e7399b6da6f24d' });
-    const userDocs = await User.deleteMany({ email: emailRegex });
+    const userDocs = await User.deleteMany({ $or: [{ email: emailRegex }, { email: { $in: extraEmails } }, { firebaseUid: { $in: uids } }] });
 
     let firebaseUsers = 0;
     if (firebaseAuth) {
