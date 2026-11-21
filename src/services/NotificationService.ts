@@ -37,7 +37,7 @@ export const NotificationService = {
         const fcm = getFirebaseMessaging();
         if (!fcm) return { sent: 0, reason: 'messaging-unavailable' };
         const tokens = await FcmToken.find({ firebaseUid }).lean().exec();
-        if (tokens.length === 0) return { sent: 0, reason: 'no-tokens' };
+        if (tokens.length === 0) return { sent: 0, reason: 'no-tokens', devices: 0 };
         const res = await fcm.sendEachForMulticast({
             tokens: tokens.map((t) => t.token),
             notification: {
@@ -58,7 +58,7 @@ export const NotificationService = {
             }
         });
         if (dead.length) await FcmToken.deleteMany({ token: { $in: dead } });
-        return { sent: res.successCount, failed: res.failureCount };
+        return { sent: res.successCount, failed: res.failureCount, devices: tokens.length };
     },
 };
 
