@@ -9,7 +9,7 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
 
     const result = await JobService.getJobs({
         page: page ? Number(page) : 1,
-        limit: limit ? Number(limit) : 10,
+        limit: Math.min(Math.max(Number(limit) || 10, 1), 50),
         search: search as string | undefined,
         location: location as string | undefined,
         company: company as string | undefined,
