@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { User } from '../../models/User.js';
 import { Job } from '../../models/Job.js';
+import { createOfficeJob } from '../../services/JobService.js';
 
 // GET /api/v1/admin/offices?status=pending|approved|rejected|all
 export const listOffices = async (req: Request, res: Response): Promise<void> => {
@@ -87,4 +88,26 @@ export const rejectJob = async (req: Request, res: Response): Promise<void> => {
         return;
     }
     res.json({ success: true, data: job });
+};
+
+// POST /api/v1/admin/jobs — publish a job on behalf of an approved office
+export const createJobForOffice = async (req: Request, res: Response): Promise<void> => {
+    const { officeId, title, location, salary, experience, summary } = req.body ?? {};
+    if (typeof officeId !== 'string' || typeof title !== 'string' || typeof location !== 'string' || typeof summary !== 'string'
+        || !title.trim() || !location.trim() || !summary.trim()) {
+        res.status(400).json({ success: false, error: 'officeId, title, location and summary are required.' });
+        return;
+    }
+    const office = await User.findOne({ _id: officeId, role: 'office', officeStatus: 'approved' }).exec();
+    if (!office) {
+        res.status(404).json({ success: false, error: 'Approved office not found.' });
+        return;
+    }
+    const job = await createOfficeJob(office, {
+        title, location,
+        salary: typeof salary === 'string' ? salary : undefined,
+        experience: typeof experience === 'string' ? experience : undefined,
+        summary,
+    }, 'approved');
+    res.status(201).json({ success: true, data: job });
 };

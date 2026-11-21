@@ -293,7 +293,7 @@ export interface OfficeJobInput {
 }
 
 /** Create a job posting owned by an approved office account. */
-export const createOfficeJob = async (office: IUser, input: OfficeJobInput): Promise<IJob> => {
+export const createOfficeJob = async (office: IUser, input: OfficeJobInput, approvalStatus: string = 'pending'): Promise<IJob> => {
     // Synthetic unique id within the office's own channel namespace
     const messageId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
 
@@ -311,7 +311,7 @@ export const createOfficeJob = async (office: IUser, input: OfficeJobInput): Pro
         is_job: true,
         ai_classified_at: new Date(),
         posted_by: office.firebaseUid,
-        approval_status: 'pending',
+        approval_status: approvalStatus,
         office_verified: true,
         job_info: {
             job_titles: [input.title.trim()],
