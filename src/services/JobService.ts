@@ -200,19 +200,26 @@ export const getLocations = async (): Promise<LocationStat[]> => {
     }
 };
 
-export const getSpecializations = async (): Promise<SpecializationStat[]> => {
+export const getSpecializations = async (): Promise<{ items: SpecializationStat[]; total: number }> => {
     try {
-        const result = await Job.aggregate([
-            { $match: { is_job: true } },
-            { $unwind: '$job_info.job_titles' },
-            { $group: { _id: '$job_info.job_titles', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 20 },
-        ]).exec();
+        const [result, distinctTitles] = await Promise.all([
+            Job.aggregate([
+                { $match: { is_job: true } },
+                { $unwind: '$job_info.job_titles' },
+                { $group: { _id: '$job_info.job_titles', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 20 },
+            ]).exec(),
+            // Real number of distinct specializations across all jobs (no cap)
+            Job.distinct('job_info.job_titles', { is_job: true }).exec(),
+        ]);
 
-        return result.map((item) => ({ name: item._id as string, count: item.count as number }));
+        return {
+            items: result.map((item) => ({ name: item._id as string, count: item.count as number })),
+            total: distinctTitles.length,
+        };
     } catch (error) {
         console.error('JobService.getSpecializations error:', error);
-        return [];
+        return { items: [], total: 0 };
     }
 };

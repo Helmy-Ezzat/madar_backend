@@ -37,8 +37,9 @@ export const getLocations = async (_req: Request, res: Response): Promise<void> 
 // GET /api/v1/jobs/specializations
 
 export const getSpecializations = async (_req: Request, res: Response): Promise<void> => {
-    const specializations = await JobService.getSpecializations();
-    res.json({ success: true, data: specializations });
+    const { items, total } = await JobService.getSpecializations();
+    // data stays the top-20 array for existing consumers; total is the real distinct count
+    res.json({ success: true, data: items, total });
 };
 
 // GET /api/v1/jobs/:id
