@@ -65,7 +65,7 @@ export const listJobs = async (req: Request, res: Response): Promise<void> => {
 export const approveJob = async (req: Request, res: Response): Promise<void> => {
     const job = await Job.findOneAndUpdate(
         { _id: req.params.id, posted_by: { $exists: true, $nin: ['', null] } },
-        { approval_status: 'approved' },
+        { approval_status: 'approved', published_at: new Date() },
         { new: true },
     );
     if (!job) {
