@@ -48,7 +48,9 @@ export const rejectOffice = async (req: Request, res: Response): Promise<void> =
 export const listJobs = async (req: Request, res: Response): Promise<void> => {
     const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
     const filter: Record<string, unknown> = { posted_by: { $ne: '' } };
-    if (status !== 'all') filter.approval_status = status;
+    // Jobs posted before the review flow existed have no status yet: treat as pending
+    if (status === 'pending') filter.approval_status = { $in: ['pending', '', null] };
+    else if (status !== 'all') filter.approval_status = status;
 
     const jobs = await Job.find(filter)
         .select('job_info company_name license_number office_verified approval_status posted_by published_at created_at')
