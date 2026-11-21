@@ -4,6 +4,7 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { Api } from 'telegram';
 import { Job, IJobInfo } from '../models/Job.js';
 import { aiService, ParsedJob } from './AiService.js';
+import { notifyNewJob } from './NotificationService.js';
 
 
 interface CompanyData {
@@ -215,7 +216,7 @@ class TelegramService {
         }
 
         const jobInfo = this.toJobInfo(aiData);
-        await Job.findOneAndUpdate(
+        const savedJob = await Job.findOneAndUpdate(
             { message_id: message.id, channel_username: channelUsername },
             {
                 $set: {
@@ -242,6 +243,11 @@ class TelegramService {
             console.log(`✅ Job found: ${preview}${jobInfo.job_titles.length > 2 ? '...' : ''}`);
         } else {
             console.log(`⏭️  Not a job post (saved for deduplication)`);
+        }
+
+        // Push alerts: posts already in the DB returned early above, so this save is genuinely new
+        if (savedJob?.is_job) {
+            await notifyNewJob(savedJob);
         }
     }
 
