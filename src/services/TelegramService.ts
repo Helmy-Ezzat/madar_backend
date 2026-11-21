@@ -3,6 +3,7 @@ import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { Api } from 'telegram';
 import { Job } from '../models/Job.js';
+import { notifyNewJob } from './NotificationService.js';
 import { aiService } from './AiService.js';
 
 
@@ -247,11 +248,20 @@ class TelegramService {
         }
 
         // Always upsert so we don't re-process non-job messages
-        await Job.findOneAndUpdate(
+        const alreadySeen = await Job.exists({
+            message_id: message.id,
+            channel_username: channelUsername,
+        });
+        const savedJob = await Job.findOneAndUpdate(
             { message_id: message.id, channel_username: channelUsername },
             { $set: baseData },
             { upsert: true, new: true }
         ).exec();
+
+        // Push alerts for genuinely new job posts
+        if (!alreadySeen && savedJob?.is_job) {
+            await notifyNewJob(savedJob);
+        }
     }
 
     /** Main entry — connect → scrape all channels → disconnect. Never throws. */
