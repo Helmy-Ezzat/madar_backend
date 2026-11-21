@@ -47,7 +47,7 @@ export const rejectOffice = async (req: Request, res: Response): Promise<void> =
 // GET /api/v1/admin/jobs?status=pending|approved|rejected — office-posted jobs only
 export const listJobs = async (req: Request, res: Response): Promise<void> => {
     const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
-    const filter: Record<string, unknown> = { posted_by: { $ne: '' } };
+    const filter: Record<string, unknown> = { posted_by: { $exists: true, $nin: ['', null] } };
     // Jobs posted before the review flow existed have no status yet: treat as pending
     if (status === 'pending') filter.approval_status = { $in: ['pending', '', null] };
     else if (status !== 'all') filter.approval_status = status;
@@ -64,7 +64,7 @@ export const listJobs = async (req: Request, res: Response): Promise<void> => {
 // POST /api/v1/admin/jobs/:id/approve
 export const approveJob = async (req: Request, res: Response): Promise<void> => {
     const job = await Job.findOneAndUpdate(
-        { _id: req.params.id, posted_by: { $ne: '' } },
+        { _id: req.params.id, posted_by: { $exists: true, $nin: ['', null] } },
         { approval_status: 'approved' },
         { new: true },
     );
@@ -78,7 +78,7 @@ export const approveJob = async (req: Request, res: Response): Promise<void> => 
 // POST /api/v1/admin/jobs/:id/reject
 export const rejectJob = async (req: Request, res: Response): Promise<void> => {
     const job = await Job.findOneAndUpdate(
-        { _id: req.params.id, posted_by: { $ne: '' } },
+        { _id: req.params.id, posted_by: { $exists: true, $nin: ['', null] } },
         { approval_status: 'rejected' },
         { new: true },
     );
