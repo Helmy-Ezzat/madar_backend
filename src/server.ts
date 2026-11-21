@@ -3,10 +3,10 @@ import app from './app.js';
 import { connectDB } from './config/db.js';
 import { startScraperCron } from './cron/ScraperCron.js';
 import mongoose from 'mongoose';
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 
 const PORT = process.env.PORT || 7860;
-let scraperTask: cron.ScheduledTask | null = null;
+let scraperTask: ScheduledTask | null = null;
 
 const bootstrap = async (): Promise<void> => {
     try {

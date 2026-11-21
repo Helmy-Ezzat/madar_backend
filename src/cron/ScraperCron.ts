@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { telegramService } from '../services/TelegramService.js';
 
 /*
@@ -6,7 +6,7 @@ import { telegramService } from '../services/TelegramService.js';
  * Expression: 0 * * * *
  * Runs at the start of every hour (24 times per day)
 */
-export const startScraperCron = (): cron.ScheduledTask => {
+export const startScraperCron = (): ScheduledTask => {
     let isScraping = false;
 
     const task = cron.schedule('0 * * * *', async () => {
