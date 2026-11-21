@@ -38,13 +38,16 @@ export const NotificationService = {
         if (!fcm) return { sent: 0, reason: 'messaging-unavailable' };
         const tokens = await FcmToken.find({ firebaseUid }).lean().exec();
         if (tokens.length === 0) return { sent: 0, reason: 'no-tokens', devices: 0 };
+        // Data-only payload: the service worker renders the notification itself,
+        // which behaves identically on desktop Chrome and Android (notification-key
+        // payloads take a different SDK path that silently no-ops on some desktops).
         const res = await fcm.sendEachForMulticast({
             tokens: tokens.map((t) => t.token),
-            notification: {
+            data: {
                 title: 'إشعار تجريبي من مدار 🎉',
                 body: 'كده الإشعارات شغالة! هيوصلك تنبيه أول ما تنزل وظيفة مطابقة لبحثك.',
+                link: '/',
             },
-            data: { link: '/' },
             webpush: {
                 fcmOptions: { link: 'https://madar-jobs.vercel.app/' },
             },
@@ -115,13 +118,11 @@ export async function notifyNewJob(job: IJob): Promise<void> {
         const title = job.job_info?.job_titles?.[0] ?? 'وظيفة جديدة';
         const response = await fcm.sendEachForMulticast({
             tokens: tokens.map((t) => t.token),
-            notification: {
+            data: {
                 title: 'وظيفة جديدة مطابقة لبحثك',
                 body: `${title} — ${job.company_name}`,
-            },
-            data: {
                 jobId: String(job._id),
-                url: `/jobs?jobId=${String(job._id)}`,
+                link: `/jobs?jobId=${String(job._id)}`,
             },
             webpush: {
                 fcmOptions: { link: `https://madar-jobs.vercel.app/jobs?jobId=${String(job._id)}` },
