@@ -156,6 +156,16 @@ export const lookupUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 // POST /api/v1/admin/cleanup/pentest — one-off removal of the authorized pentest's probe data
+// POST /api/v1/admin/jobs/approve-all — bulk-approves every pending job
+// (telegram imports land here); the UI gates this behind a confirm dialog.
+export const approveAllJobs = async (_req: Request, res: Response): Promise<void> => {
+    const result = await Job.updateMany(
+        { approval_status: 'pending' },
+        { $set: { approval_status: 'approved', published_at: new Date() } }
+    ).exec();
+    res.json({ success: true, data: { approved: result.modifiedCount || 0 } });
+};
+
 // POST /api/v1/admin/migrate/grandfather-legacy-jobs — ONE-SHOT migration:
 // marks every already-live telegram-imported job approved so the new
 // "imports need approval" rule does not hide the existing public backlog.

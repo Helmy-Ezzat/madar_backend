@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/authMiddleware.js';
-import { getCounts, listOffices, approveOffice, rejectOffice, suspendOffice, unsuspendOffice, listJobs, approveJob, rejectJob, suspendJob, unsuspendJob, deleteJob, createPlatformJob, lookupUser, cleanupPentestData, grandfatherLegacyJobs } from '../../controllers/v1/AdminController.js';
+import { getCounts, listOffices, approveOffice, rejectOffice, suspendOffice, unsuspendOffice, listJobs, approveJob, rejectJob, suspendJob, unsuspendJob, deleteJob, createPlatformJob, lookupUser, cleanupPentestData, grandfatherLegacyJobs, approveAllJobs } from '../../controllers/v1/AdminController.js';
 
 const router = Router();
 
@@ -18,6 +18,7 @@ router.post('/jobs', createPlatformJob);
 router.post('/jobs/:id/approve', approveJob);
 router.post('/cleanup/pentest', cleanupPentestData);
 router.post('/migrate/grandfather-legacy-jobs', grandfatherLegacyJobs);
+router.post('/jobs/approve-all', approveAllJobs);
 router.post('/jobs/:id/reject', rejectJob);
 router.post('/jobs/:id/suspend', suspendJob);
 router.post('/jobs/:id/unsuspend', unsuspendJob);
