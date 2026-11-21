@@ -1,3 +1,17 @@
+---
+title: Madar Backend
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
+# Madar Backend Project
+Telegram Scraper and Cron Jobs Service.
+
+---
+
 # Madar Jobs — Backend
 
 Express + TypeScript API behind [Madar Jobs](https://madar-jobs.vercel.app). It scrapes job posts that labor offices publish on Telegram channels, turns the unstructured text into structured job data with an LLM, stores it in MongoDB, and serves it to the frontend.

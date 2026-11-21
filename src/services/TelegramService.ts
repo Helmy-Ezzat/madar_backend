@@ -2,9 +2,9 @@ import 'dotenv/config';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { Api } from 'telegram';
-import { Job } from '../models/Job.js';
+import { Job, IJobInfo } from '../models/Job.js';
+import { aiService, ParsedJob } from './AiService.js';
 import { notifyNewJob } from './NotificationService.js';
-import { aiService } from './AiService.js';
 
 
 interface CompanyData {
@@ -65,7 +65,9 @@ export const CHANNELS = Object.keys(COMPANY_REGISTRY);
 
 // Service
 
-const REQUEST_DELAY_MS = 15_000; // 15 seconds between AI requests
+const REQUEST_DELAY_MS = 2_000;
+const MISCLASSIFIED_AFTER = new Date('2026-08-13T00:00:00.000Z');
+const REPROCESS_BATCH = 40;
 
 class TelegramService {
     private client: TelegramClient | null = null;
@@ -206,86 +208,143 @@ class TelegramService {
 
         console.log(`🧠 AI analysing new post from ${channelUsername}...`);
         const aiData = await aiService.parseJob(message.message);
+        await this.delay();
 
-        // Rate-limit delay between AI calls
-        await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
+        if (!aiData) {
+            console.log(`⚠️  AI parse failed for ${channelUsername}/${message.id} — not saving, will retry`);
+            return;
+        }
 
-        const baseData = {
-            message_id: message.id,
-            source_platform: 'telegram',
-            channel_username: channelUsername,
-            channel_title: channelTitle,
-            company_name: companyData.name,
-            license_number: companyData.license,
-            company_description: companyData.description,
-            source_link: `https://t.me/${channelUsername.replace('@', '')}/${message.id}`,
-            raw_text: message.message,
-            published_at: new Date((message.date ?? 0) * 1000),
-            is_job: false,
-            job_info: null,
-        };
+        const jobInfo = this.toJobInfo(aiData);
+        const savedJob = await Job.findOneAndUpdate(
+            { message_id: message.id, channel_username: channelUsername },
+            {
+                $set: {
+                    message_id: message.id,
+                    source_platform: 'telegram',
+                    channel_username: channelUsername,
+                    channel_title: channelTitle,
+                    company_name: companyData.name,
+                    license_number: companyData.license,
+                    company_description: companyData.description,
+                    source_link: `https://t.me/${channelUsername.replace('@', '')}/${message.id}`,
+                    raw_text: message.message,
+                    published_at: new Date((message.date ?? 0) * 1000),
+                    is_job: Boolean(jobInfo),
+                    job_info: jobInfo,
+                    ai_classified_at: new Date(),
+                },
+            },
+            { upsert: true, new: true }
+        ).exec();
 
-        if (aiData?.is_job) {
-            const jobTitles = aiData.job_titles ?? [];
-            if (jobTitles.length > 0) {
-                Object.assign(baseData, {
-                    is_job: true,
-                    job_info: {
-                        job_titles: jobTitles,
-                        location: aiData.location ?? '',
-                        salary: aiData.salary ?? 'يحدد عند المقابلة',
-                        experience: aiData.experience ?? 'غير محدد',
-                        summary: aiData.summary ?? '',
-                    },
-                });
-                const preview = jobTitles.slice(0, 2).join(', ');
-                console.log(`✅ Job found: ${preview}${jobTitles.length > 2 ? '...' : ''}`);
-            } else {
-                console.log(`⏭️  Skipped: Invalid job data (no job_titles)`);
-            }
+        if (jobInfo) {
+            const preview = jobInfo.job_titles.slice(0, 2).join(', ');
+            console.log(`✅ Job found: ${preview}${jobInfo.job_titles.length > 2 ? '...' : ''}`);
         } else {
             console.log(`⏭️  Not a job post (saved for deduplication)`);
         }
 
-        // Always upsert so we don't re-process non-job messages
-        const alreadySeen = await Job.exists({
-            message_id: message.id,
-            channel_username: channelUsername,
-        });
-        const savedJob = await Job.findOneAndUpdate(
-            { message_id: message.id, channel_username: channelUsername },
-            { $set: baseData },
-            { upsert: true, new: true }
-        ).exec();
-
-        // Push alerts for genuinely new job posts
-        if (!alreadySeen && savedJob?.is_job) {
+        // Push alerts: posts already in the DB returned early above, so this save is genuinely new
+        if (savedJob?.is_job) {
             await notifyNewJob(savedJob);
         }
     }
 
-    /** Main entry — connect → scrape all channels → disconnect. Never throws. */
-    /** Main entry — connect → scrape all channels → disconnect. Never throws. */
+    /**
+     * Re-parses posts saved as non-jobs after the Groq model shutdown,
+     * when AI failures were persisted as is_job: false.
+     */
+    async reprocessUnclassified(limit = REPROCESS_BATCH): Promise<{ classified: number; recovered: number }> {
+        const docs = await Job.find({
+            is_job: false,
+            created_at: { $gte: MISCLASSIFIED_AFTER },
+            ai_classified_at: { $exists: false },
+            raw_text: { $exists: true, $ne: '' },
+        })
+            .sort({ created_at: 1 })
+            .limit(limit)
+            .exec();
+
+        if (docs.length === 0) {
+            console.log('♻️  No misclassified posts left to reprocess.');
+            return { classified: 0, recovered: 0 };
+        }
+
+        console.log(`♻️  Reprocessing ${docs.length} posts saved after Groq model shutdown...`);
+        let recovered = 0;
+        let classified = 0;
+
+        for (const doc of docs) {
+            const aiData = await aiService.parseJob(doc.raw_text);
+            await this.delay();
+
+            if (!aiData) {
+                console.log(`⚠️  AI parse failed for ${doc.channel_username}/${doc.message_id} — will retry later`);
+                continue;
+            }
+
+            const jobInfo = this.toJobInfo(aiData);
+            doc.is_job = Boolean(jobInfo);
+            doc.job_info = jobInfo;
+            doc.ai_classified_at = new Date();
+            await doc.save();
+            classified++;
+
+            if (jobInfo) {
+                recovered++;
+                const preview = jobInfo.job_titles.slice(0, 2).join(', ');
+                console.log(`✅ Recovered job: ${preview}`);
+            }
+        }
+
+        console.log(`♻️  Reprocess done. Recovered ${recovered} jobs from ${classified} classified posts.`);
+        return { classified, recovered };
+    }
+
+    private toJobInfo(aiData: ParsedJob): IJobInfo | null {
+        if (!aiData.is_job) return null;
+        const jobTitles = aiData.job_titles ?? [];
+        if (jobTitles.length === 0) return null;
+
+        return {
+            job_titles: jobTitles,
+            location: aiData.location ?? '',
+            salary: aiData.salary ?? 'يحدد عند المقابلة',
+            experience: aiData.experience ?? 'غير محدد',
+            summary: aiData.summary ?? '',
+        };
+    }
+
+    private delay(): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
+    }
+
+    /** Main entry — connect → scrape all channels → reprocess failed classifications → disconnect. */
     async run(channels: string[] = CHANNELS): Promise<void> {
         try {
             console.log('\n🚀 Telegram scraper started...');
 
             const connected = await this.connect();
+            if (connected) {
+                for (const channel of channels) {
+                    await this.scrapeChannel(channel);
+                }
+            } else {
+                console.error('❌ Could not connect to Telegram — skipping channel scrape, still reprocessing stored posts.');
+            }
+
+            await this.reprocessUnclassified();
+            console.log('🏁 Scraping finished. Data synced to MongoDB Atlas.\n');
+
             if (!connected) {
                 throw new Error('Could not connect to Telegram');
             }
-
-            for (const channel of channels) {
-                await this.scrapeChannel(channel);
-            }
-
-            console.log('🏁 Scraping finished. Data synced to MongoDB Atlas.\n');
         } catch (error) {
             console.error('❌ TelegramService.run fatal error:', error);
             throw error;
         } finally {
             await this.disconnect();
-
             console.log('👋 Process exiting...');
         }
     }

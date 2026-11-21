@@ -26,6 +26,8 @@ export interface IJob extends Document {
     created_at: Date;
     is_job: boolean;
     job_info: IJobInfo | null;
+    /** Set only after a successful AI parse (job or not). Missing means retry. */
+    ai_classified_at?: Date;
 }
 
 // Schema
@@ -56,6 +58,7 @@ const JobSchema = new Schema<IJob>(
         created_at: { type: Date, default: Date.now },
         is_job: { type: Boolean, default: false, index: true },
         job_info: { type: JobInfoSchema, default: null },
+        ai_classified_at: { type: Date, required: false },
     },
     {
         // Map to the existing collection — no renaming needed

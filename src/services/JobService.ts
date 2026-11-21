@@ -163,20 +163,20 @@ export const getOffices = async (): Promise<OfficeStat[]> => {
             },
             {
                 $group: {
-                    _id: '$license_number', // Group by license number to merge same companies
+                    _id: '$company_name',
                     jobCount: { $sum: 1 },
-                    name: { $first: '$company_name' }, // Take first company name
-                    description: { $first: '$company_description' }, // Take first description
+                    description: { $first: '$company_description' },
+                    license_number: { $first: '$license_number' },
                 },
             },
             { $sort: { jobCount: -1 } },
         ]).exec();
 
         return result.map((item) => ({
-            name: item.name as string,
+            name: item._id as string,
             jobCount: item.jobCount as number,
             description: item.description as string,
-            license_number: item._id as string,
+            license_number: item.license_number as string,
         }));
     } catch (error) {
         console.error('JobService.getOffices error:', error);
