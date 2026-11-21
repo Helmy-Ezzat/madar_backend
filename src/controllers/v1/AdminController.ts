@@ -111,3 +111,20 @@ export const createJobForOffice = async (req: Request, res: Response): Promise<v
     }, 'approved');
     res.status(201).json({ success: true, data: job });
 };
+
+// GET /api/v1/admin/users/lookup?email=... — inspect one account's role/office state
+export const lookupUser = async (req: Request, res: Response): Promise<void> => {
+    const email = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    if (!email) {
+        res.status(400).json({ success: false, error: 'email is required.' });
+        return;
+    }
+    const user = await User.findOne({ email })
+        .select('email displayName role officeStatus officeName licenseNumber createdAt')
+        .exec();
+    if (!user) {
+        res.status(404).json({ success: false, error: 'User not found.' });
+        return;
+    }
+    res.json({ success: true, data: user });
+};
