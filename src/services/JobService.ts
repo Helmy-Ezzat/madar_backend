@@ -379,7 +379,7 @@ export const applyToJob = async (
     jobId: string,
     input: ApplicationInput,
 ): Promise<'ok' | 'duplicate' | 'not_found'> => {
-    const job = await Job.findOne({ _id: jobId, office_verified: true }).select('_id').exec();
+    const job = await Job.findOne({ _id: jobId, posted_by: { $in: ['office', 'madar'] }, approval_status: 'approved' }).select('_id').exec();
     if (!job) return 'not_found';
 
     try {
