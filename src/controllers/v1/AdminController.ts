@@ -9,10 +9,7 @@ import { firebaseAuth } from '../../config/firebase.js';
 // GET /api/v1/admin/counts — red-badge counters for the admin dashboard
 export const getCounts = async (req: Request, res: Response): Promise<void> => {
     const pendingOffices = await User.countDocuments({ role: 'office', officeStatus: 'pending' });
-    const pendingJobs = await Job.countDocuments({
-        posted_by: { $exists: true, $nin: ['', null] },
-        approval_status: { $in: ['pending', '', null] },
-    });
+    const pendingJobs = await Job.countDocuments({ approval_status: 'pending' });
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const newApplications = await Application.countDocuments({ createdAt: { $gte: since } });
     res.json({ success: true, data: { pendingOffices, pendingJobs, newApplications } });
@@ -159,6 +156,26 @@ export const lookupUser = async (req: Request, res: Response): Promise<void> => 
 };
 
 // POST /api/v1/admin/cleanup/pentest — one-off removal of the authorized pentest's probe data
+// POST /api/v1/admin/migrate/grandfather-legacy-jobs — ONE-SHOT migration:
+// marks every already-live telegram-imported job approved so the new
+// "imports need approval" rule does not hide the existing public backlog.
+export const grandfatherLegacyJobs = async (_req: Request, res: Response): Promise<void> => {
+    const result = await Job.updateMany(
+        {
+            is_job: true,
+            approval_status: { $in: ['', null] },
+            posted_by: { $in: ['', null] },
+        },
+        { $set: { approval_status: 'approved' } }
+    ).exec();
+    // jobs with no approval_status field at all
+    const result2 = await Job.updateMany(
+        { is_job: true, approval_status: { $exists: false } },
+        { $set: { approval_status: 'approved' } }
+    ).exec();
+    res.json({ success: true, data: { updated: (result.modifiedCount || 0) + (result2.modifiedCount || 0) } });
+};
+
 export const cleanupPentestData = async (_req: Request, res: Response): Promise<void> => {
     const emailRegex = /^pentest-seeker.*@example\.com$/i;
     const extraEmails = ['pentest-seeker2-1795243137@example.com', 'pentest-seeker3-1795243273@example.com'];

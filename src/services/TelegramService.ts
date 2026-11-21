@@ -233,6 +233,8 @@ class TelegramService {
                     is_job: Boolean(jobInfo),
                     job_info: jobInfo,
                     ai_classified_at: new Date(),
+                    // Imported jobs enter the moderation queue like office jobs
+                    approval_status: 'pending',
                 },
             },
             { upsert: true, new: true }
