@@ -71,3 +71,15 @@ export const healthCheck = (req: Request, res: Response) => {
         timestamp: new Date().toISOString()
     });
 };
+// GET /api/v1/jobs/suggest?q=
+
+export const getSuggestions = async (req: Request, res: Response): Promise<void> => {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (!q) {
+        res.json({ success: true, data: { titles: [], locations: [] } });
+        return;
+    }
+
+    const data = await JobService.getSuggestions(q);
+    res.json({ success: true, data });
+};

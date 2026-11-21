@@ -223,3 +223,52 @@ export const getSpecializations = async (): Promise<{ items: SpecializationStat[
         return { items: [], total: 0 };
     }
 };
+
+// Escape user input before using it inside a RegExp (aggregation $match / $regexMatch).
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Autocomplete suggestions for the search box: job titles (specializations) and
+ * locations that contain the query, prefix matches first, then by job count.
+ */
+export const getSuggestions = async (q: string): Promise<{ titles: SpecializationStat[]; locations: LocationStat[] }> => {
+    try {
+        const contains = new RegExp(escapeRegExp(q), 'i');
+        const prefix = `^${escapeRegExp(q)}`;
+
+        const priorityAndSort: mongoose.PipelineStage[] = [
+            {
+                $addFields: {
+                    p: { $cond: [{ $regexMatch: { input: '$_id', regex: prefix, options: 'i' } }, 0, 1] },
+                },
+            },
+            { $sort: { p: 1, count: -1 } },
+        ];
+
+        const [titles, locations] = await Promise.all([
+            Job.aggregate([
+                { $match: { is_job: true } },
+                { $unwind: '$job_info.job_titles' },
+                { $group: { _id: '$job_info.job_titles', count: { $sum: 1 } } },
+                { $match: { _id: contains } },
+                ...priorityAndSort,
+                { $limit: 6 },
+            ]).exec(),
+            Job.aggregate([
+                { $match: { is_job: true, 'job_info.location': { $exists: true, $ne: '' } } },
+                { $group: { _id: '$job_info.location', count: { $sum: 1 } } },
+                { $match: { _id: contains } },
+                ...priorityAndSort,
+                { $limit: 4 },
+            ]).exec(),
+        ]);
+
+        return {
+            titles: titles.map((item) => ({ name: item._id as string, count: item.count as number })),
+            locations: locations.map((item) => ({ name: item._id as string, count: item.count as number })),
+        };
+    } catch (error) {
+        console.error('JobService.getSuggestions error:', error);
+        return { titles: [], locations: [] };
+    }
+};
