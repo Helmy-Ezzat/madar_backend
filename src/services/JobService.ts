@@ -79,7 +79,11 @@ export const getJobs = async ({
 
         // 2. Base filter
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const matchStage: Record<string, any> = { is_job: true };
+        const matchStage: Record<string, any> = {
+            is_job: true,
+            // Office-posted jobs stay hidden until an admin approves them
+            $or: [{ posted_by: '' }, { posted_by: { $exists: false } }, { approval_status: 'approved' }],
+        };
 
         if (location) matchStage['job_info.location'] = location;
         if (company) matchStage['company_name'] = company;
@@ -307,6 +311,7 @@ export const createOfficeJob = async (office: IUser, input: OfficeJobInput): Pro
         is_job: true,
         ai_classified_at: new Date(),
         posted_by: office.firebaseUid,
+        approval_status: 'pending',
         office_verified: true,
         job_info: {
             job_titles: [input.title.trim()],
@@ -341,6 +346,9 @@ export const updateOfficeJob = async (
         job.job_info.summary = input.summary.trim();
         job.raw_text = input.summary.trim();
     }
+
+    // An edited posting goes back through admin review before it is public again
+    job.approval_status = 'pending';
 
     await job.save();
     return job;

@@ -30,6 +30,7 @@ export interface IJob extends Document {
     ai_classified_at?: Date;
     /** Firebase UID of the office account that posted this job (empty for scraped jobs). */
     posted_by?: string;
+    approval_status?: string;
     /** True when posted by an approved labor-recruitment office (إلحاق عمالة معتمد). */
     office_verified?: boolean;
 }
@@ -64,6 +65,7 @@ const JobSchema = new Schema<IJob>(
         job_info: { type: JobInfoSchema, default: null },
         ai_classified_at: { type: Date, required: false },
         posted_by: { type: String, default: '', index: true },
+        approval_status: { type: String, default: '' },
         office_verified: { type: Boolean, default: false },
     },
     {
