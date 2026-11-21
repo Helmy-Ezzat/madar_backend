@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 import JobRoutes from './routes/v1/JobRoutes.js';
 import AuthRoutes from './routes/v1/AuthRoutes.js';
+import SavedJobRoutes from './routes/v1/SavedJobRoutes.js';
 import { healthCheck } from './controllers/v1/JobController.js';
 
 const app = express();
@@ -43,6 +44,7 @@ const limiter = rateLimit({
 app.use('/api',limiter);
 app.use('/api/v1/jobs', JobRoutes);
 app.use('/api/v1/auth', AuthRoutes);
+app.use('/api/v1/saved-jobs', SavedJobRoutes);
 
 // 5 - Error Handling: How to handle failures
 app.use((_req: Request, res: Response) => {
