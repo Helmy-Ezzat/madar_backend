@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { User } from '../../models/User.js';
 import { Job } from '../../models/Job.js';
+import { Application } from '../../models/Application.js';
+import { FcmToken } from '../../models/FcmToken.js';
+import { firebaseAuth } from '../../config/firebase.js';
 
 // GET /api/v1/admin/offices?status=pending|approved|rejected|all
 export const listOffices = async (req: Request, res: Response): Promise<void> => {
@@ -140,4 +143,46 @@ export const lookupUser = async (req: Request, res: Response): Promise<void> => 
         return;
     }
     res.json({ success: true, data: user });
+};
+
+// POST /api/v1/admin/cleanup/pentest — one-off removal of the authorized pentest's probe data
+export const cleanupPentestData = async (_req: Request, res: Response): Promise<void> => {
+    const emailRegex = /^pentest-seeker-.*@example\.com$/i;
+    const users = await User.find({ email: emailRegex }).select('firebaseUid email').exec();
+    const uids = users.map((u) => u.firebaseUid);
+    const emails = users.map((u) => u.email);
+
+    const apps = await Application.deleteMany({
+        $or: [
+            { applicantUid: { $in: uids } },
+            { applicantEmail: { $in: emails } },
+            { job_id: '6b013f7d51e7399b6da6f24d' },
+        ],
+    });
+    const tokens = await FcmToken.deleteMany({ firebaseUid: { $in: uids } });
+    const jobs = await Job.deleteMany({ _id: '6b013f7d51e7399b6da6f24d' });
+    const userDocs = await User.deleteMany({ email: emailRegex });
+
+    let firebaseUsers = 0;
+    if (firebaseAuth) {
+        for (const uid of uids) {
+            try {
+                await firebaseAuth.deleteUser(uid);
+                firebaseUsers++;
+            } catch {
+                // already gone
+            }
+        }
+    }
+
+    res.json({
+        success: true,
+        data: {
+            mongoUsers: userDocs.deletedCount ?? 0,
+            firebaseUsers,
+            applications: apps.deletedCount ?? 0,
+            fcmTokens: tokens.deletedCount ?? 0,
+            jobs: jobs.deletedCount ?? 0,
+        },
+    });
 };
