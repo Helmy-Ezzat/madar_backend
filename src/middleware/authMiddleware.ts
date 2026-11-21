@@ -109,7 +109,7 @@ export const requireAdmin = async (
         .split(',')
         .map((e) => e.trim().toLowerCase());
     const email = (req.user!.email ?? '').toLowerCase();
-    if (!email || !admins.includes(email)) {
+    if (!email || req.user!.email_verified !== true || !admins.includes(email)) {
         res.status(403).json({ success: false, error: 'Admin access required.' });
         return;
     }
